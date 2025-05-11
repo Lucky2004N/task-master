@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, UserWallet } = require('../models');
 const generateToken = require('../utils/generateToken');
 
 // @desc    Register a new user
@@ -23,6 +23,13 @@ const registerUser = async (req, res) => {
     });
 
     if (user) {
+      // Create a wallet for the new user
+      await UserWallet.create({
+        userId: user.id,
+        eCoins: 0,
+        lifetimeEarned: 0
+      });
+
       res.status(201).json({
         id: user.id,
         name: user.name,
@@ -33,7 +40,7 @@ const registerUser = async (req, res) => {
       res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error registering user:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -50,6 +57,15 @@ const loginUser = async (req, res) => {
 
     // Check if user exists and password matches
     if (user && (await user.isValidPassword(password))) {
+      // Record login activity
+      try {
+        const { recordUserActivity } = require('./activityController');
+        await recordUserActivity(user.id, 'login');
+      } catch (activityError) {
+        console.error('Error recording login activity:', activityError);
+        // Continue login process even if activity recording fails
+      }
+
       res.json({
         id: user.id,
         name: user.name,
@@ -60,7 +76,7 @@ const loginUser = async (req, res) => {
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error logging in:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -71,7 +87,14 @@ const loginUser = async (req, res) => {
 const getUserProfile = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: { exclude: ['password'] }
+      attributes: { exclude: ['password'] },
+      include: [
+        {
+          model: UserWallet,
+          as: 'wallet',
+          attributes: ['eCoins', 'lifetimeEarned']
+        }
+      ]
     });
 
     if (user) {
@@ -80,7 +103,7 @@ const getUserProfile = async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error getting user profile:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -112,7 +135,27 @@ const updateUserProfile = async (req, res) => {
       res.status(404).json({ message: 'User not found' });
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error updating user profile:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Get user by ID
+// @route   GET /api/users/:id
+// @access  Private/Admin
+const getUserById = async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error getting user by ID:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -121,5 +164,6 @@ module.exports = {
   registerUser,
   loginUser,
   getUserProfile,
-  updateUserProfile
+  updateUserProfile,
+  getUserById
 };

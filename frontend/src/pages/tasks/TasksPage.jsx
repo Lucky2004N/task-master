@@ -1,5 +1,4 @@
 import { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import TaskCard from '../../components/tasks/TaskCard';
 import TaskForm from '../../components/tasks/TaskForm';
@@ -7,81 +6,112 @@ import TaskContext from '../../context/TaskContext';
 
 const TasksPage = () => {
   const { tasks, projects, loading, error, fetchTasks, createTask, updateTask, deleteTask } = useContext(TaskContext);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentTask, setCurrentTask] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
   const [filters, setFilters] = useState({
     status: '',
     priority: '',
     projectId: '',
-    search: ''
+    searchTerm: ''
   });
-  
+
   useEffect(() => {
-    fetchTasks(filters);
-  }, [fetchTasks, filters]);
-  
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const handleCreateTask = async (taskData) => {
+    const result = await createTask(taskData);
+    if (result.success) {
+      setShowForm(false);
+    }
+  };
+
+  const handleUpdateTask = async (taskData) => {
+    const result = await updateTask(editingTask.id, taskData);
+    if (result.success) {
+      setShowForm(false);
+      setEditingTask(null);
+    }
+  };
+
+  const handleEditTask = (task) => {
+    setEditingTask(task);
+    setShowForm(true);
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (window.confirm('Are you sure you want to delete this task?')) {
+      await deleteTask(taskId);
+    }
+  };
+
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFilters({
+      ...filters,
+      [name]: value
+    });
   };
-  
-  const clearFilters = () => {
+
+  const applyFilters = () => {
+    fetchTasks(filters);
+  };
+
+  const resetFilters = () => {
     setFilters({
       status: '',
       priority: '',
       projectId: '',
-      search: ''
+      searchTerm: ''
     });
+    fetchTasks({});
   };
-  
-  const openCreateModal = () => {
-    setCurrentTask(null);
-    setIsModalOpen(true);
-  };
-  
-  const openEditModal = (task) => {
-    setCurrentTask(task);
-    setIsModalOpen(true);
-  };
-  
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setCurrentTask(null);
-  };
-  
-  const handleSubmit = async (formData) => {
-    if (currentTask) {
-      await updateTask(currentTask.id, formData);
-    } else {
-      await createTask(formData);
-    }
-    closeModal();
-  };
-  
-  const handleStatusChange = async (taskId, updates) => {
-    await updateTask(taskId, updates);
-  };
-  
+
+  // Filter tasks based on search term locally (in addition to API filtering)
+  const filteredTasks = tasks.filter(task => {
+    if (!filters.searchTerm) return true;
+    return task.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+           (task.description && task.description.toLowerCase().includes(filters.searchTerm.toLowerCase()));
+  });
+
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+          <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
           <button
-            onClick={openCreateModal}
+            onClick={() => {
+              setEditingTask(null);
+              setShowForm(!showForm);
+            }}
             className="btn btn-primary"
           >
-            Create Task
+            {showForm ? 'Cancel' : 'Create New Task'}
           </button>
         </div>
-        
+
+        {showForm && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              {editingTask ? 'Edit Task' : 'Create New Task'}
+            </h2>
+            <TaskForm
+              task={editingTask}
+              onSubmit={editingTask ? handleUpdateTask : handleCreateTask}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingTask(null);
+              }}
+            />
+          </div>
+        )}
+
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Filter Tasks</h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
+              <label htmlFor="status" className="form-label">Status</label>
               <select
                 id="status"
                 name="status"
@@ -96,11 +126,9 @@ const TasksPage = () => {
                 <option value="archived">Archived</option>
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                Priority
-              </label>
+              <label htmlFor="priority" className="form-label">Priority</label>
               <select
                 id="priority"
                 name="priority"
@@ -115,11 +143,9 @@ const TasksPage = () => {
                 <option value="urgent">Urgent</option>
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="projectId" className="block text-sm font-medium text-gray-700 mb-1">
-                Project
-              </label>
+              <label htmlFor="projectId" className="form-label">Project</label>
               <select
                 id="projectId"
                 name="projectId"
@@ -135,101 +161,85 @@ const TasksPage = () => {
                 ))}
               </select>
             </div>
-            
+
             <div>
-              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-1">
-                Search
-              </label>
+              <label htmlFor="searchTerm" className="form-label">Search</label>
               <input
                 type="text"
-                id="search"
-                name="search"
-                value={filters.search}
+                id="searchTerm"
+                name="searchTerm"
+                value={filters.searchTerm}
                 onChange={handleFilterChange}
                 placeholder="Search tasks..."
                 className="form-input"
               />
             </div>
           </div>
-          
-          <div className="mt-4 flex justify-end">
+
+          <div className="mt-4 flex justify-end space-x-3">
             <button
-              onClick={clearFilters}
-              className="text-sm text-gray-600 hover:text-gray-900"
+              onClick={resetFilters}
+              className="btn btn-secondary"
             >
-              Clear Filters
+              Reset
             </button>
-          </div>
-        </div>
-        
-        {/* Task List */}
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-yellow-500 border-t-transparent"></div>
-            <p className="mt-2 text-gray-600">Loading tasks...</p>
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
-            <p className="text-red-700">{error}</p>
-          </div>
-        ) : tasks.length > 0 ? (
-          <div className="space-y-4">
-            {tasks.map(task => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onEdit={openEditModal}
-                onDelete={deleteTask}
-                onStatusChange={handleStatusChange}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
-            <p className="text-gray-500 mb-4">
-              {Object.values(filters).some(value => value !== '') 
-                ? 'Try adjusting your filters or create a new task.'
-                : 'Get started by creating your first task.'}
-            </p>
             <button
-              onClick={openCreateModal}
+              onClick={applyFilters}
               className="btn btn-primary"
             >
-              Create Task
+              Apply Filters
             </button>
           </div>
-        )}
-      </div>
-      
-      {/* Task Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">
-                  {currentTask ? 'Edit Task' : 'Create Task'}
-                </h2>
-                <button
-                  onClick={closeModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <TaskForm
-                task={currentTask}
-                onSubmit={handleSubmit}
-                onCancel={closeModal}
-              />
-            </div>
-          </div>
         </div>
-      )}
+
+        {/* Tasks List */}
+        <div>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent"></div>
+              <p className="mt-2 text-gray-600">Loading tasks...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <strong className="font-bold">Error!</strong>
+              <span className="block sm:inline"> {error}</span>
+            </div>
+          ) : filteredTasks.length > 0 ? (
+            <div className="space-y-4">
+              {filteredTasks.map(task => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onEdit={handleEditTask}
+                  onDelete={handleDeleteTask}
+                  onStatusChange={(taskId, updates) => updateTask(taskId, updates)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-md p-8 text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">No tasks found</h3>
+              <p className="mt-2 text-gray-500">
+                {filters.status || filters.priority || filters.projectId || filters.searchTerm
+                  ? "No tasks match your current filters. Try adjusting your filters or create a new task."
+                  : "You don't have any tasks yet. Create your first task to get started!"}
+              </p>
+              <button
+                onClick={() => {
+                  setEditingTask(null);
+                  setShowForm(true);
+                }}
+                className="mt-4 btn btn-primary"
+              >
+                Create New Task
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </Layout>
   );
 };

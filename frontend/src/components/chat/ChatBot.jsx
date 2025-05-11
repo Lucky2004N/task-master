@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const ChatBot = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { 
-      id: 1, 
-      text: "Hi there! I'm your Task Master assistant. Need help staying motivated or organizing your tasks?", 
+    {
+      id: 1,
+      text: "Hi there! I'm your Task Master assistant. How can I help you today?",
       sender: 'bot',
       timestamp: new Date()
     }
@@ -13,50 +13,30 @@ const ChatBot = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-  
-  // Motivational messages and task suggestions
-  const motivationalResponses = [
-    "You're making great progress! Keep up the good work!",
-    "Remember, every completed task brings you closer to your goals.",
-    "Taking things one step at a time is the key to success.",
-    "You've got this! I believe in you.",
-    "Small progress is still progress. Be proud of what you've accomplished today."
-  ];
-  
-  const taskSuggestions = [
-    "How about adding a quick 15-minute task to your list?",
-    "Consider breaking down that big project into smaller, manageable tasks.",
-    "Have you tried the Pomodoro technique? 25 minutes of focus, then a 5-minute break.",
-    "Setting specific deadlines can help you stay on track.",
-    "Try prioritizing your tasks using the Eisenhower Matrix: urgent/important, important/not urgent, etc."
-  ];
-  
-  // Scroll to bottom of chat when new messages arrive
+
+  // Auto-scroll to bottom of messages
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-  
+    if (isOpen) {
+      scrollToBottom();
+    }
+  }, [messages, isOpen]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-  
+
   const toggleChat = () => {
     setIsOpen(!isOpen);
-    // If opening the chat and it's been closed for a while, add a greeting
-    if (!isOpen && messages.length === 1) {
-      setTimeout(() => {
-        addBotMessage("What can I help you with today?");
-      }, 500);
-    }
   };
-  
+
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
   };
-  
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (inputValue.trim() === '') return;
+    
+    if (!inputValue.trim()) return;
     
     // Add user message
     const userMessage = {
@@ -70,79 +50,93 @@ const ChatBot = () => {
     setInputValue('');
     setIsTyping(true);
     
-    // Simulate bot thinking
+    // Simulate bot response after a delay
     setTimeout(() => {
-      respondToMessage(inputValue);
+      const botResponse = generateBotResponse(inputValue);
+      setMessages(prevMessages => [...prevMessages, {
+        id: prevMessages.length + 1,
+        text: botResponse,
+        sender: 'bot',
+        timestamp: new Date()
+      }]);
       setIsTyping(false);
     }, 1000);
   };
-  
-  const addBotMessage = (text) => {
-    const botMessage = {
-      id: messages.length + 1,
-      text,
-      sender: 'bot',
-      timestamp: new Date()
-    };
+
+  // Simple bot response generator
+  const generateBotResponse = (userInput) => {
+    const input = userInput.toLowerCase();
     
-    setMessages(prevMessages => [...prevMessages, botMessage]);
-  };
-  
-  const respondToMessage = (message) => {
-    const lowerMessage = message.toLowerCase();
+    if (input.includes('hello') || input.includes('hi') || input.includes('hey')) {
+      return "Hello! How can I assist you with your tasks today?";
+    }
     
-    // Check for different types of user queries
-    if (lowerMessage.includes('motivat') || lowerMessage.includes('inspire') || lowerMessage.includes('encourage')) {
-      // Send a motivational message
-      const randomMotivation = motivationalResponses[Math.floor(Math.random() * motivationalResponses.length)];
-      addBotMessage(randomMotivation);
-    } 
-    else if (lowerMessage.includes('task') || lowerMessage.includes('todo') || lowerMessage.includes('to do') || lowerMessage.includes('work')) {
-      // Send a task suggestion
-      const randomSuggestion = taskSuggestions[Math.floor(Math.random() * taskSuggestions.length)];
-      addBotMessage(randomSuggestion);
+    if (input.includes('thank')) {
+      return "You're welcome! Is there anything else I can help you with?";
     }
-    else if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
-      // Greeting
-      addBotMessage("Hello! How can I help you with your tasks today?");
+    
+    if (input.includes('bye') || input.includes('goodbye')) {
+      return "Goodbye! Have a productive day!";
     }
-    else if (lowerMessage.includes('thank')) {
-      // Thanks
-      addBotMessage("You're welcome! I'm here anytime you need assistance.");
+    
+    if (input.includes('help')) {
+      return "I can help you with task management tips, productivity advice, or answer questions about Task Master features. What would you like to know?";
     }
-    else if (lowerMessage.includes('bye') || lowerMessage.includes('goodbye')) {
-      // Farewell
-      addBotMessage("Goodbye! Remember to check your tasks before you go. Have a productive day!");
+    
+    if (input.includes('task') && (input.includes('create') || input.includes('add') || input.includes('new'))) {
+      return "To create a new task, click the 'Create New Task' button on the Tasks page or Dashboard. You can set a title, description, priority, due date, and assign it to a project.";
     }
-    else {
-      // Default response with a suggestion to add a task
-      addBotMessage("I'm here to help you stay on track! Would you like to add a task for today?");
-      
-      setTimeout(() => {
-        addBotMessage("You can say 'motivate me' if you need some encouragement, or ask for task suggestions.");
-      }, 1000);
+    
+    if (input.includes('project') && (input.includes('create') || input.includes('add') || input.includes('new'))) {
+      return "To create a new project, go to the Projects page and click 'Create New Project'. You can give it a name, description, and choose a color for easy identification.";
     }
+    
+    if (input.includes('deadline') || input.includes('due date')) {
+      return "Setting realistic deadlines is important! Try breaking down large tasks into smaller ones with their own deadlines. This makes big projects more manageable.";
+    }
+    
+    if (input.includes('priorit')) {
+      return "I recommend using the priority levels (Low, Medium, High, Urgent) to focus on what's most important. Start your day with high-priority tasks when your energy is highest!";
+    }
+    
+    if (input.includes('procrastinat')) {
+      return "To overcome procrastination, try the 5-minute rule: commit to working on a task for just 5 minutes. Often, you'll find momentum and continue working past the 5 minutes!";
+    }
+    
+    if (input.includes('focus') || input.includes('concentrate')) {
+      return "For better focus, try the Pomodoro Technique: work for 25 minutes, then take a 5-minute break. After 4 cycles, take a longer 15-30 minute break.";
+    }
+    
+    if (input.includes('motivat')) {
+      return "When motivation is low, try visualizing the benefits of completing your tasks. Also, don't forget to celebrate your wins, even small ones!";
+    }
+    
+    // Default responses
+    const defaultResponses = [
+      "That's an interesting question! While I'm still learning, I can help with task management tips and information about Task Master features.",
+      "I'm here to help you stay productive! Do you have any specific questions about managing your tasks or projects?",
+      "I'd be happy to help with that. Could you provide a bit more detail so I can give you the best assistance?",
+      "Great question! Task Master has many features to help with that. Have you tried using projects to organize related tasks?",
+      "I'm focused on helping you with productivity and task management. Is there a specific feature you'd like to learn more about?"
+    ];
+    
+    return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
   };
-  
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-  
+
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {/* Chat button */}
       <button
         onClick={toggleChat}
-        className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg focus:outline-none transition-transform duration-300 hover:scale-110 ${
-          isOpen ? 'bg-red-500 rotate-45' : 'bg-primary-500'
-        }`}
+        className="bg-primary-500 hover:bg-primary-600 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg transition-all duration-300 hover:scale-105"
+        aria-label="Chat with assistant"
       >
         {isOpen ? (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
           </svg>
         )}
@@ -150,80 +144,109 @@ const ChatBot = () => {
       
       {/* Chat window */}
       {isOpen && (
-        <div className="absolute bottom-16 right-0 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden transition-all duration-300 transform origin-bottom-right animate-scale-in">
+        <div className="absolute bottom-16 right-0 w-80 sm:w-96 bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col transition-all duration-300 animate-fade-in-up">
           {/* Chat header */}
-          <div className="bg-primary-500 text-white px-4 py-3 flex justify-between items-center">
+          <div className="bg-primary-500 text-white px-4 py-3 rounded-t-lg flex justify-between items-center">
             <div className="flex items-center">
-              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-primary-500 mr-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
-                  <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-primary-500 mr-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
               <div>
                 <h3 className="font-medium">Task Assistant</h3>
-                <p className="text-xs text-primary-100">Here to motivate you</p>
+                <p className="text-xs text-primary-100">Online</p>
               </div>
             </div>
+            <button
+              onClick={toggleChat}
+              className="text-primary-100 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           
           {/* Chat messages */}
-          <div className="h-80 overflow-y-auto p-4 bg-gray-50">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`mb-3 flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+          <div className="flex-1 p-4 overflow-y-auto max-h-96">
+            <div className="space-y-4">
+              {messages.map((message) => (
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                    message.sender === 'user'
-                      ? 'bg-primary-500 text-white rounded-br-none'
-                      : 'bg-white border border-gray-200 text-gray-700 rounded-bl-none'
-                  }`}
+                  key={message.id}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <p>{message.text}</p>
-                  <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-primary-100' : 'text-gray-400'}`}>
-                    {formatTime(message.timestamp)}
-                  </p>
-                </div>
-              </div>
-            ))}
-            
-            {isTyping && (
-              <div className="flex justify-start mb-3">
-                <div className="bg-white border border-gray-200 rounded-lg rounded-bl-none px-4 py-2">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  <div
+                    className={`max-w-3/4 rounded-lg px-4 py-2 ${
+                      message.sender === 'user'
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    <p>{message.text}</p>
+                    <p className={`text-xs mt-1 ${message.sender === 'user' ? 'text-primary-100' : 'text-gray-500'}`}>
+                      {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
                 </div>
-              </div>
-            )}
-            
-            <div ref={messagesEndRef} />
+              ))}
+              
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 text-gray-800 rounded-lg px-4 py-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div ref={messagesEndRef} />
+            </div>
           </div>
           
           {/* Chat input */}
-          <form onSubmit={handleSubmit} className="border-t border-gray-200 p-3 flex">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              placeholder="Type a message..."
-              className="flex-1 border border-gray-300 rounded-l-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              className="bg-primary-500 text-white rounded-r-lg px-4 py-2 hover:bg-primary-600 transition-colors duration-200"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
+          <form onSubmit={handleSubmit} className="border-t border-gray-200 p-4">
+            <div className="flex items-center">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={handleInputChange}
+                placeholder="Type a message..."
+                className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+              <button
+                type="submit"
+                className="bg-primary-500 text-white px-4 py-2 rounded-r-lg hover:bg-primary-600 focus:outline-none"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
           </form>
         </div>
       )}
+      
+      {/* CSS for animations */}
+      <style jsx>{`
+        @keyframes fade-in-up {
+          from { 
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to { 
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };

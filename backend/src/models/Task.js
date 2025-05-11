@@ -16,8 +16,8 @@ const Task = sequelize.define('Task', {
     allowNull: true
   },
   status: {
-    type: DataTypes.ENUM('pending', 'in_progress', 'completed', 'archived'),
-    defaultValue: 'pending'
+    type: DataTypes.ENUM('todo', 'in-progress', 'review', 'completed'),
+    defaultValue: 'todo'
   },
   priority: {
     type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'),
@@ -27,9 +27,21 @@ const Task = sequelize.define('Task', {
     type: DataTypes.DATE,
     allowNull: true
   },
-  completedAt: {
-    type: DataTypes.DATE,
-    allowNull: true
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
+  },
+  projectId: {
+    type: DataTypes.UUID,
+    allowNull: true,
+    references: {
+      model: 'Projects',
+      key: 'id'
+    }
   }
 }, {
   timestamps: true

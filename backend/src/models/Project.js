@@ -15,9 +15,25 @@ const Project = sequelize.define('Project', {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  color: {
-    type: DataTypes.STRING,
-    defaultValue: '#3498db' // Default blue color
+  status: {
+    type: DataTypes.ENUM('active', 'completed', 'on-hold', 'cancelled'),
+    defaultValue: 'active'
+  },
+  startDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  endDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   }
 }, {
   timestamps: true

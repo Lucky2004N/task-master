@@ -1,104 +1,37 @@
-const { Task, Project } = require('../models');
-const { Op } = require('sequelize');
+const { Task, Project, User } = require('../models');
+const { createTaskPendingNotification } = require('./notificationController');
 
-// @desc    Create a new task
-// @route   POST /api/tasks
-// @access  Private
-const createTask = async (req, res) => {
-  try {
-    const { title, description, priority, dueDate, projectId } = req.body;
-
-    // Check if project exists and belongs to user if projectId is provided
-    if (projectId) {
-      const project = await Project.findOne({
-        where: { id: projectId, userId: req.user.id }
-      });
-
-      if (!project) {
-        return res.status(404).json({ message: 'Project not found or not authorized' });
-      }
-    }
-
-    const task = await Task.create({
-      title,
-      description,
-      priority,
-      dueDate,
-      projectId,
-      userId: req.user.id
-    });
-
-    res.status(201).json(task);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// @desc    Get all tasks for a user
-// @route   GET /api/tasks
-// @access  Private
+/**
+ * Get all tasks for the logged-in user
+ * @route GET /api/tasks
+ * @access Private
+ */
 const getTasks = async (req, res) => {
   try {
-    const { status, priority, projectId, search, sortBy, sortOrder } = req.query;
-    
-    // Build filter object
-    const filter = { userId: req.user.id };
-    
-    // Add status filter if provided
-    if (status) {
-      filter.status = status;
-    }
-    
-    // Add priority filter if provided
-    if (priority) {
-      filter.priority = priority;
-    }
-    
-    // Add project filter if provided
-    if (projectId) {
-      filter.projectId = projectId;
-    }
-    
-    // Add search filter if provided
-    if (search) {
-      filter[Op.or] = [
-        { title: { [Op.iLike]: `%${search}%` } },
-        { description: { [Op.iLike]: `%${search}%` } }
-      ];
-    }
-    
-    // Build sort options
-    const order = [];
-    if (sortBy) {
-      order.push([sortBy, sortOrder === 'desc' ? 'DESC' : 'ASC']);
-    } else {
-      // Default sort by createdAt desc
-      order.push(['createdAt', 'DESC']);
-    }
-    
     const tasks = await Task.findAll({
-      where: filter,
-      order,
+      where: { userId: req.user.id },
       include: [
         {
           model: Project,
           as: 'project',
-          attributes: ['id', 'name', 'color']
+          attributes: ['id', 'name']
         }
-      ]
+      ],
+      order: [['createdAt', 'DESC']]
     });
-    
+
     res.json(tasks);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching tasks:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Get a task by ID
-// @route   GET /api/tasks/:id
-// @access  Private
+/**
+ * Get a single task by ID
+ * @route GET /api/tasks/:id
+ * @access Private
+ */
 const getTaskById = async (req, res) => {
   try {
     const task = await Task.findOne({
@@ -110,7 +43,7 @@ const getTaskById = async (req, res) => {
         {
           model: Project,
           as: 'project',
-          attributes: ['id', 'name', 'color']
+          attributes: ['id', 'name']
         }
       ]
     });
@@ -121,16 +54,54 @@ const getTaskById = async (req, res) => {
 
     res.json(task);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching task:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Update a task
-// @route   PUT /api/tasks/:id
-// @access  Private
+/**
+ * Create a new task
+ * @route POST /api/tasks
+ * @access Private
+ */
+const createTask = async (req, res) => {
+  try {
+    const { title, description, status, priority, dueDate, projectId } = req.body;
+
+    // Create the task
+    const task = await Task.create({
+      title,
+      description,
+      status,
+      priority,
+      dueDate,
+      projectId,
+      userId: req.user.id
+    });
+
+    // Create a notification for the new task
+    await createTaskPendingNotification(task, req.user.id);
+    
+    // Record task creation activity for streak calendar
+    const { recordUserActivity } = require('./activityController');
+    await recordUserActivity(req.user.id, 'task_created');
+
+    res.status(201).json(task);
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Update a task
+ * @route PUT /api/tasks/:id
+ * @access Private
+ */
 const updateTask = async (req, res) => {
   try {
+    const { title, description, status, priority, dueDate, projectId } = req.body;
+
     const task = await Task.findOne({
       where: {
         id: req.params.id,
@@ -142,46 +113,38 @@ const updateTask = async (req, res) => {
       return res.status(404).json({ message: 'Task not found' });
     }
 
-    // Check if project exists and belongs to user if projectId is provided
-    if (req.body.projectId) {
-      const project = await Project.findOne({
-        where: { id: req.body.projectId, userId: req.user.id }
-      });
-
-      if (!project) {
-        return res.status(404).json({ message: 'Project not found or not authorized' });
-      }
-    }
-
-    // Update task fields
-    const { title, description, status, priority, dueDate, projectId } = req.body;
+    // Check if status is being updated to completed
+    const wasCompleted = task.status === 'completed';
+    const isNowCompleted = status === 'completed';
     
+    // Update task fields
     task.title = title || task.title;
     task.description = description !== undefined ? description : task.description;
     task.status = status || task.status;
     task.priority = priority || task.priority;
     task.dueDate = dueDate !== undefined ? dueDate : task.dueDate;
     task.projectId = projectId !== undefined ? projectId : task.projectId;
-    
-    // If status is changed to completed, set completedAt
-    if (status === 'completed' && task.status !== 'completed') {
-      task.completedAt = new Date();
-    } else if (status !== 'completed') {
-      task.completedAt = null;
-    }
 
     await task.save();
     
+    // If task was just marked as completed, record the activity
+    if (!wasCompleted && isNowCompleted) {
+      const { recordUserActivity } = require('./activityController');
+      await recordUserActivity(req.user.id, 'task_completed');
+    }
+
     res.json(task);
   } catch (error) {
-    console.error(error);
+    console.error('Error updating task:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// @desc    Delete a task
-// @route   DELETE /api/tasks/:id
-// @access  Private
+/**
+ * Delete a task
+ * @route DELETE /api/tasks/:id
+ * @access Private
+ */
 const deleteTask = async (req, res) => {
   try {
     const task = await Task.findOne({
@@ -196,18 +159,41 @@ const deleteTask = async (req, res) => {
     }
 
     await task.destroy();
-    
+
     res.json({ message: 'Task removed' });
   } catch (error) {
-    console.error(error);
+    console.error('Error deleting task:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/**
+ * Get tasks by project ID
+ * @route GET /api/tasks/project/:projectId
+ * @access Private
+ */
+const getTasksByProject = async (req, res) => {
+  try {
+    const tasks = await Task.findAll({
+      where: {
+        projectId: req.params.projectId,
+        userId: req.user.id
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error fetching tasks by project:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
 module.exports = {
-  createTask,
   getTasks,
   getTaskById,
+  createTask,
   updateTask,
-  deleteTask
+  deleteTask,
+  getTasksByProject
 };

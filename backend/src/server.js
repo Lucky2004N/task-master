@@ -9,6 +9,9 @@ require('dotenv').config();
 const userRoutes = require('./routes/userRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const activityRoutes = require('./routes/activityRoutes');
+const focusRoutes = require('./routes/focusRoutes');
 
 // Connect to database
 connectDB();
@@ -26,6 +29,9 @@ app.use(morgan('dev'));
 app.use('/api/users', userRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/focus', focusRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -41,10 +47,21 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Import notification scheduler
+const { runNotificationChecks } = require('./utils/notificationScheduler');
+
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  
+  // Run initial notification check
+  runNotificationChecks();
+  
+  // Schedule notification checks to run every hour
+  setInterval(() => {
+    runNotificationChecks();
+  }, 60 * 60 * 1000); // 1 hour
 });
 
 // Handle unhandled promise rejections
