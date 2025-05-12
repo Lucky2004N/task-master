@@ -184,12 +184,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 📬 Contact
 
-Your Name - your.email@example.com
+Your Name - luckynawale7@example.com
 
-Project Link: [https://github.com/yourusername/task-master](https://github.com/yourusername/task-master)
+Project Link: [https://github.com/Lucky2004N/task-master](https://github.com/yourusername/task-master)
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by Your Name</sub>
+  <sub>Built with ❤️ by Lucky</sub>
 </div>
